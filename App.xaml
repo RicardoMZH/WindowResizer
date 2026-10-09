@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="WindowSizerWinUI.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
+    xmlns:local="using:WindowSizerWinUI">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="AppCardBrush" Color="#B8FFFFFF" />
+                    <SolidColorBrush x:Key="AppCardStrokeBrush" Color="#229A8779" />
+                    <SolidColorBrush x:Key="AppMutedBrush" Color="#756F6A" />
+                    <SolidColorBrush x:Key="AppAccentBrush" Color="#735947" />
+                    <SolidColorBrush x:Key="AppTableHeaderBrush" Color="#685241" />
+                    <SolidColorBrush x:Key="AppTableFooterBrush" Color="#B8DCEBE8" />
+                    <SolidColorBrush x:Key="AppTableFooterTextBrush" Color="#245E5B" />
+                    <SolidColorBrush x:Key="AppRowNormalBrush" Color="#12FFFFFF" />
+                    <SolidColorBrush x:Key="AppRowSelectedBrush" Color="#A8D7E8E3" />
+                    <SolidColorBrush x:Key="AppRowSeparatorBrush" Color="#8E9C8D7F" />
+                    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#66FFFFFF" />
+                    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#77FFFFFF" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="AppCardBrush" Color="#AA2A292C" />
+                    <SolidColorBrush x:Key="AppCardStrokeBrush" Color="#50FFFFFF" />
+                    <SolidColorBrush x:Key="AppMutedBrush" Color="#B6B0AA" />
+                    <SolidColorBrush x:Key="AppAccentBrush" Color="#A7856D" />
+                    <SolidColorBrush x:Key="AppTableHeaderBrush" Color="#53463E" />
+                    <SolidColorBrush x:Key="AppTableFooterBrush" Color="#B0284846" />
+                    <SolidColorBrush x:Key="AppTableFooterTextBrush" Color="#C2E7DC" />
+                    <SolidColorBrush x:Key="AppRowNormalBrush" Color="#102E2D2B" />
+                    <SolidColorBrush x:Key="AppRowSelectedBrush" Color="#365952" />
+                    <SolidColorBrush x:Key="AppRowSeparatorBrush" Color="#889D948A" />
+                    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#662A292C" />
+                    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#772A292C" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <Style x:Key="AppRowNormalStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource AppRowNormalBrush}" />
+            </Style>
+            <Style x:Key="AppRowSelectedStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource AppRowSelectedBrush}" />
+            </Style>
+            <Style x:Key="AppHeaderSplitterStyle" TargetType="primitives:Thumb">
+                <Setter Property="Width" Value="10" />
+                <Setter Property="Height" Value="30" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="primitives:Thumb">
+                            <Grid Background="Transparent">
+                                <Border Width="1" Height="20" Background="#88FFFFFF"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

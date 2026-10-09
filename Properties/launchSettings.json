@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "WindowSizerWinUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "WindowSizerWinUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
