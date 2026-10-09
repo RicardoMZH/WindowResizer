@@ -1,0 +1,75 @@
+name: Build release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-2025
+    steps:
+      - name: Check version tag
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_NAME -cmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') {
+            'valid=true' >> $env:GITHUB_OUTPUT
+          } else {
+            'valid=false' >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Check out tagged source
+        if: steps.version.outputs.valid == 'true'
+        uses: actions/checkout@v4
+
+      - name: Install .NET 10 SDK
+        if: steps.version.outputs.valid == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build three release modes
+        if: steps.version.outputs.valid == 'true'
+        shell: pwsh
+        run: |
+          $outputRoot = Join-Path $env:RUNNER_TEMP 'WindowSizerReleases'
+          $buildRoot = Join-Path $env:RUNNER_TEMP 'WindowSizerReleaseBuild'
+          $dist = Join-Path $env:RUNNER_TEMP 'WindowSizerAssets'
+          New-Item -ItemType Directory -Path $dist -Force | Out-Null
+
+          foreach ($mode in @('Uncompressed', 'Compressed', 'FrameworkDependent')) {
+            & .\build.cmd -Mode $mode -OutputRoot $outputRoot -BuildRoot $buildRoot
+            if ($LASTEXITCODE -ne 0) { throw "Build failed for $mode" }
+          }
+
+          Copy-Item -LiteralPath (Join-Path $outputRoot 'Uncompressed\WindowSizerWinUI.exe') `
+            -Destination (Join-Path $dist 'WindowSizerWinUI_Uncompressed.exe')
+          Copy-Item -LiteralPath (Join-Path $outputRoot 'Compressed\WindowSizerWinUI.exe') `
+            -Destination (Join-Path $dist 'WindowSizerWinUI_Compressed.exe')
+          Copy-Item -LiteralPath (Join-Path $outputRoot 'FrameworkDependent\WindowSizerWinUI_FrameworkDependent.zip') `
+            -Destination (Join-Path $dist 'WindowSizerWinUI_FrameworkDependent.zip')
+
+      - name: Publish GitHub Release
+        if: steps.version.outputs.valid == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $dist = Join-Path $env:RUNNER_TEMP 'WindowSizerAssets'
+          $assets = @(
+            (Join-Path $dist 'WindowSizerWinUI_Uncompressed.exe')
+            (Join-Path $dist 'WindowSizerWinUI_Compressed.exe')
+            (Join-Path $dist 'WindowSizerWinUI_FrameworkDependent.zip')
+          )
+          & gh release view $env:GITHUB_REF_NAME --json url *> $null
+          if ($LASTEXITCODE -eq 0) {
+            & gh release upload $env:GITHUB_REF_NAME @assets --clobber
+          } else {
+            & gh release create $env:GITHUB_REF_NAME @assets `
+              --verify-tag --title $env:GITHUB_REF_NAME --generate-notes
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Release publishing failed.' }

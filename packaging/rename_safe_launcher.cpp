@@ -6,6 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <cwchar>
 #include <string>
 #include <vector>
 
@@ -231,6 +232,47 @@ std::wstring BuildCommandLine(const std::wstring& executable)
     LocalFree(arguments);
     return command;
 }
+
+bool RemoveCacheDirectory(const std::wstring& directory)
+{
+    WIN32_FIND_DATAW entry{};
+    HANDLE search = FindFirstFileW((directory + L"\\*").c_str(), &entry);
+    if (search == INVALID_HANDLE_VALUE)
+        return GetLastError() == ERROR_FILE_NOT_FOUND &&
+            RemoveDirectoryW(directory.c_str()) != FALSE;
+
+    bool success = true;
+    do
+    {
+        if (std::wcscmp(entry.cFileName, L".") == 0 ||
+            std::wcscmp(entry.cFileName, L"..") == 0)
+            continue;
+
+        const std::wstring path = directory + L"\\" + entry.cFileName;
+        if ((entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        {
+            // A junction must not lead cleanup outside this payload's cache.
+            if ((entry.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0)
+                success = RemoveDirectoryW(path.c_str()) != FALSE && success;
+            else
+                success = RemoveCacheDirectory(path) && success;
+        }
+        else
+        {
+            success = DeleteFileW(path.c_str()) != FALSE && success;
+        }
+    } while (FindNextFileW(search, &entry));
+    const DWORD findError = GetLastError();
+    FindClose(search);
+    return findError == ERROR_NO_MORE_FILES &&
+        RemoveDirectoryW(directory.c_str()) != FALSE && success;
+}
+
+bool LockRuntime(HANDLE mutex)
+{
+    const DWORD result = WaitForSingleObject(mutex, INFINITE);
+    return result == WAIT_OBJECT_0 || result == WAIT_ABANDONED;
+}
 }
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
@@ -296,15 +338,42 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
         runtimeRoot += L"\\WindowSizerWinUI\\Runtime";
     }
 
-    const std::wstring runtimeDirectory =
-        runtimeRoot + L"\\" + DigestPrefix(digest);
+    const std::wstring digestPrefix = DigestPrefix(digest);
+    const std::wstring runtimeDirectory = runtimeRoot + L"\\" + digestPrefix;
+    const std::wstring mutexName =
+        L"Global\\WindowSizerWinUI.Runtime." + digestPrefix;
+    HANDLE mutex = CreateMutexW(nullptr, FALSE, mutexName.c_str());
+    if (mutex == nullptr || !LockRuntime(mutex))
+    {
+        if (mutex != nullptr)
+            CloseHandle(mutex);
+        ShowError(L"Failed to coordinate application cache.");
+        return 5;
+    }
+
     const int directoryResult =
         SHCreateDirectoryExW(nullptr, runtimeDirectory.c_str(), nullptr);
     if (directoryResult != ERROR_SUCCESS &&
         directoryResult != ERROR_ALREADY_EXISTS &&
         directoryResult != ERROR_FILE_EXISTS)
     {
+        ReleaseMutex(mutex);
+        CloseHandle(mutex);
         ShowError(L"Failed to create application cache directory.");
+        return 5;
+    }
+
+    // Shared handles mark live launchers. Cleanup takes an exclusive handle.
+    const std::wstring leasePath = runtimeDirectory + L"\\.lease";
+    HANDLE lease = CreateFileW(
+        leasePath.c_str(), GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (lease == INVALID_HANDLE_VALUE)
+    {
+        ReleaseMutex(mutex);
+        CloseHandle(mutex);
+        ShowError(L"Failed to reserve application cache.");
         return 5;
     }
 
@@ -317,6 +386,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
         !SetEnvironmentVariableW(
             L"DOTNET_BUNDLE_EXTRACT_BASE_DIR", bundleDirectory.c_str()))
     {
+        CloseHandle(lease);
+        ReleaseMutex(mutex);
+        CloseHandle(mutex);
         ShowError(L"Failed to prepare application extraction directory.");
         return 5;
     }
@@ -327,6 +399,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
         (!WritePayload(executable, payload, payloadSize) ||
          !FileMatchesPayload(executable, payload, payloadSize)))
     {
+        CloseHandle(lease);
+        ReleaseMutex(mutex);
+        CloseHandle(mutex);
         ShowError(L"Failed to extract application payload.");
         return 6;
     }
@@ -340,11 +415,35 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
             executable.c_str(), commandLine.data(), nullptr, nullptr, FALSE,
             0, nullptr, workingDirectory.c_str(), &startup, &process))
     {
+        CloseHandle(lease);
+        ReleaseMutex(mutex);
+        CloseHandle(mutex);
         ShowError(L"Failed to start application.");
         return 7;
     }
 
+    ReleaseMutex(mutex);
     CloseHandle(process.hThread);
+    WaitForSingleObject(process.hProcess, INFINITE);
     CloseHandle(process.hProcess);
+
+    if (LockRuntime(mutex))
+    {
+        CloseHandle(lease);
+        HANDLE exclusive = CreateFileW(
+            leasePath.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
+            nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (exclusive != INVALID_HANDLE_VALUE)
+        {
+            CloseHandle(exclusive);
+            RemoveCacheDirectory(runtimeDirectory);
+        }
+        ReleaseMutex(mutex);
+    }
+    else
+    {
+        CloseHandle(lease);
+    }
+    CloseHandle(mutex);
     return 0;
 }

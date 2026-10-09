@@ -12,12 +12,13 @@
 - 可将尺寸应用到整个窗口，或仅应用到内容区域（不含标题栏与边框）。
 - 可将目标窗口居中在其所在显示器的完整屏幕区域，也可在应用尺寸后自动居中。
 - 调整后读取实际尺寸；目标程序限制尺寸时显示实际结果。
+- “关于”页可从 GitHub Releases 检查更新；发现新版本时可打开发布页面下载。
 
 WGC/DXGI 用于画面捕获与渲染，本工具的尺寸调整功能不需要捕获画面。
 
 ## 运行与构建
 
-压缩版交付物是单个 EXE，面向 Windows 10 2004 及以上版本的 x64 设备。支持的系统会呈现亚克力背景；旧系统会使用系统回退效果。外层原生启动程序允许任意修改 EXE 文件名，包括中文和空格。它从内嵌资源提取自包含的 WinUI 负载，始终以固定的 `WindowSizerWinUI.exe` 名称启动，因此 WinUI 资源定位不受外层文件名影响。首次启动需要在用户本地数据目录缓存负载及 .NET 组件。
+压缩版交付物是单个 EXE，面向 Windows 10 2004 及以上版本的 x64 设备。支持的系统会呈现亚克力背景；旧系统会使用系统回退效果。外层原生启动程序允许任意修改 EXE 文件名，包括中文和空格。它从内嵌资源提取自包含的 WinUI 负载，始终以固定的 `WindowSizerWinUI.exe` 名称启动，因此 WinUI 资源定位不受外层文件名影响。运行时会在用户本地数据目录提取负载及 .NET 组件，最后一个同版本实例关闭后自动清理该版本的运行缓存。
 
 重新构建需要 .NET 10 SDK、Windows SDK、Visual Studio C++ Build Tools 和 NuGet 依赖。Windows App SDK 包版本固定为 2.5.1。`build.cmd` 默认构建压缩版，也可以指定三种模式：
 
@@ -31,7 +32,11 @@ build.cmd -Mode FrameworkDependent
 - `Compressed`：单个可改名 EXE，内嵌压缩的自包含负载，是推荐交付版本。
 - `FrameworkDependent`：输出 ZIP，包含小体积 EXE 和同目录必须文件；目标电脑需另行安装 .NET 10 与对应的 Windows App SDK 运行环境。
 
-默认产物位于源码目录同级的 `WindowSizerReleases\<Mode>`，各模式复用各自的中间构建目录，避免每次构建额外留一套大型依赖。可以通过 `-OutputRoot <路径>` 和 `-BuildRoot <路径>` 改变产物及中间文件目录；已有 NuGet 还原结果时可使用 `-NoRestore`。单文件运行缓存位于 `%LOCALAPPDATA%\WindowSizerWinUI\Runtime\<负载哈希>`，按版本隔离，可在关闭程序后清理旧版本缓存。
+默认产物位于源码目录同级的 `WindowSizerReleases\<Mode>`，各模式复用各自的中间构建目录，避免每次构建额外留一套大型依赖。可以通过 `-OutputRoot <路径>` 和 `-BuildRoot <路径>` 改变产物及中间文件目录；已有 NuGet 还原结果时可使用 `-NoRestore`。单文件运行缓存位于 `%LOCALAPPDATA%\WindowSizerWinUI\Runtime\<负载哈希>`，按版本隔离并在程序退出后自动清理。
+
+## GitHub 发布
+
+将 `vX.X.X` 格式的版本标签推送到 GitHub 后，GitHub Actions 使用 `build.cmd` 的三种模式构建，并在对应的 Release 中发布三个文件：`WindowSizerWinUI_Uncompressed.exe`、`WindowSizerWinUI_Compressed.exe` 和 `WindowSizerWinUI_FrameworkDependent.zip`。其他格式的标签不会构建发布文件。
 
 验证核心尺寸逻辑：
 
