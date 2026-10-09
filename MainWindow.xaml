@@ -32,15 +32,8 @@
                         SelectionChanged="NavView_SelectionChanged">
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Name="ResizeNav" Content="窗口调整" Icon="Home" Tag="resize" />
-                <NavigationViewItem x:Name="AboutNav" Content="关于" Icon="Help" Tag="about" />
+                <NavigationViewItem x:Name="SettingsNav" Content="设置" Icon="Setting" Tag="settings" />
             </NavigationView.MenuItems>
-            <NavigationView.PaneFooter>
-                <StackPanel Margin="18,4,18,18" Spacing="10">
-                    <ToggleSwitch x:Name="DarkModeToggle"
-                                  Header="深色模式"
-                                  Toggled="DarkModeToggle_Toggled" />
-                </StackPanel>
-            </NavigationView.PaneFooter>
             <Frame x:Name="RootFrame" />
         </NavigationView>
     </Grid>

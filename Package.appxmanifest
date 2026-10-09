@@ -12,7 +12,7 @@
   <Identity
     Name="82C317EB-D777-4806-8155-56A1C805DCF4"
     Publisher="CN=AppPublisher"
-    Version="1.0.0.0" />
+    Version="1.0.1.0" />
 
   <mp:PhoneIdentity PhoneProductId="82C317EB-D777-4806-8155-56A1C805DCF4" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

@@ -10,5 +10,6 @@
   <ItemGroup>
     <Compile Include="..\..\WindowResizer.cs" Link="WindowResizer.cs" />
     <Compile Include="..\..\WindowLayoutStore.cs" Link="WindowLayoutStore.cs" />
+    <Compile Include="..\..\LanguageSettings.cs" Link="LanguageSettings.cs" />
   </ItemGroup>
 </Project>

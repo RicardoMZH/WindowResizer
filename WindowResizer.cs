@@ -82,10 +82,11 @@ internal static class WindowResizer
             if (name.Length == 0 || name == "Program Manager") return true;
             if (!GetWindowRect(hwnd, out Rect rect)) return true;
             GetWindowThreadProcessId(hwnd, out uint pid);
-            string processName = "未知程序";
+            string processName = LanguageSettings.Text("未知程序", "Unknown app");
             try { using Process process = Process.GetProcessById((int)pid); processName = process.ProcessName; }
             catch { }
-            string size = IsIconic(hwnd) ? "最小化" : $"{rect.Right - rect.Left}×{rect.Bottom - rect.Top}";
+            string size = IsIconic(hwnd) ? LanguageSettings.Text("最小化", "Minimized")
+                : $"{rect.Right - rect.Left}×{rect.Bottom - rect.Top}";
             result.Add(new WindowItem(hwnd, name, processName, size));
             return true;
         }, nint.Zero);
@@ -103,18 +104,23 @@ internal static class WindowResizer
 
     public static ResizeResult Resize(nint hwnd, int width, int height, bool clientArea)
     {
-        if (!IsWindow(hwnd)) return new(false, "目标窗口已关闭。请刷新列表。", null);
+        if (!IsWindow(hwnd)) return new(false, LanguageSettings.Text(
+            "目标窗口已关闭。请刷新列表。", "The target window has closed. Refresh the list."), null);
         if (IsIconic(hwnd) || IsZoomed(hwnd)) ShowWindow(hwnd, 9); // SW_RESTORE
-        if (!TryGetSizes(hwnd, out WindowSizes before)) return new(false, "无法读取目标窗口的尺寸。", null);
+        if (!TryGetSizes(hwnd, out WindowSizes before)) return new(false, LanguageSettings.Text(
+            "无法读取目标窗口的尺寸。", "Could not read the target window size."), null);
         int outerWidth = clientArea ? width + before.OuterWidth - before.ClientWidth : width;
         int outerHeight = clientArea ? height + before.OuterHeight - before.ClientHeight : height;
-        if (!Valid(outerWidth, outerHeight)) return new(false, "目标尺寸超出 Windows 窗口可用范围。", before);
+        if (!Valid(outerWidth, outerHeight)) return new(false, LanguageSettings.Text(
+            "目标尺寸超出 Windows 窗口可用范围。", "The target size exceeds the Windows window limit."), before);
 
         for (int attempt = 0; attempt < 3; attempt++)
         {
             // SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE. Do not set SWP_NOSIZE.
             if (!SetWindowPos(hwnd, nint.Zero, 0, 0, outerWidth, outerHeight, 0x0002 | 0x0004 | 0x0010))
-                return new(false, $"调整失败（Windows 错误 {Marshal.GetLastWin32Error()}）。目标程序若以管理员权限运行，本工具也需要管理员权限。", null);
+                return new(false, LanguageSettings.Text(
+                    $"调整失败（Windows 错误 {Marshal.GetLastWin32Error()}）。目标程序若以管理员权限运行，本工具也需要管理员权限。",
+                    $"Resize failed (Windows error {Marshal.GetLastWin32Error()}). If the target app runs as administrator, this app must too."), null);
             if (!TryGetSizes(hwnd, out WindowSizes actual)) break;
             int actualWidth = clientArea ? actual.ClientWidth : actual.OuterWidth;
             int actualHeight = clientArea ? actual.ClientHeight : actual.OuterHeight;
@@ -125,27 +131,37 @@ internal static class WindowResizer
             if (!Valid(outerWidth, outerHeight)) break;
         }
 
-        if (!TryGetSizes(hwnd, out WindowSizes final)) return new(false, "调整后无法读取目标窗口的尺寸。", null);
+        if (!TryGetSizes(hwnd, out WindowSizes final)) return new(false, LanguageSettings.Text(
+            "调整后无法读取目标窗口的尺寸。", "Could not read the window size after resizing."), null);
         int finalWidth = clientArea ? final.ClientWidth : final.OuterWidth;
         int finalHeight = clientArea ? final.ClientHeight : final.OuterHeight;
         bool exact = finalWidth == width && finalHeight == height;
-        string scope = clientArea ? "内容区域" : "整个窗口";
+        string scope = clientArea
+            ? LanguageSettings.Text("内容区域", "content area")
+            : LanguageSettings.Text("整个窗口", "whole window");
         string message = exact
-            ? $"已将{scope}设置为 {finalWidth}×{finalHeight}。"
-            : $"目标程序限制了窗口尺寸；{scope}实际为 {finalWidth}×{finalHeight}，目标为 {width}×{height}。";
+            ? LanguageSettings.Text(
+                $"已将{scope}设置为 {finalWidth}×{finalHeight}。",
+                $"Set the {scope} to {finalWidth}×{finalHeight}.")
+            : LanguageSettings.Text(
+                $"目标程序限制了窗口尺寸；{scope}实际为 {finalWidth}×{finalHeight}，目标为 {width}×{height}。",
+                $"The target app limited the size. Actual {scope}: {finalWidth}×{finalHeight}; requested: {width}×{height}.");
         return new(exact, message, final);
     }
 
     public static ResizeResult Center(nint hwnd)
     {
-        if (!IsWindow(hwnd)) return new(false, "目标窗口已关闭。请刷新列表。", null);
+        if (!IsWindow(hwnd)) return new(false, LanguageSettings.Text(
+            "目标窗口已关闭。请刷新列表。", "The target window has closed. Refresh the list."), null);
         if (IsIconic(hwnd) || IsZoomed(hwnd)) ShowWindow(hwnd, 9);
-        if (!GetWindowRect(hwnd, out Rect outer)) return new(false, "无法读取目标窗口的位置。", null);
+        if (!GetWindowRect(hwnd, out Rect outer)) return new(false, LanguageSettings.Text(
+            "无法读取目标窗口的位置。", "Could not read the target window position."), null);
 
         nint monitor = MonitorFromWindow(hwnd, 2); // MONITOR_DEFAULTTONEAREST
         MonitorInfo info = new() { Size = Marshal.SizeOf<MonitorInfo>() };
         if (monitor == nint.Zero || !GetMonitorInfo(monitor, ref info))
-            return new(false, "无法确定目标窗口所在的显示器。", null);
+            return new(false, LanguageSettings.Text(
+                "无法确定目标窗口所在的显示器。", "Could not identify the target window's monitor."), null);
 
         // The visible frame excludes Windows' invisible resize border.
         Rect visible = outer;
@@ -158,9 +174,13 @@ internal static class WindowResizer
         int x = outer.Left + left - visible.Left;
         int y = outer.Top + top - visible.Top;
         if (!SetWindowPos(hwnd, nint.Zero, x, y, 0, 0, 0x0001 | 0x0004 | 0x0010))
-            return new(false, $"居中失败（Windows 错误 {Marshal.GetLastWin32Error()}）。", null);
+            return new(false, LanguageSettings.Text(
+                $"居中失败（Windows 错误 {Marshal.GetLastWin32Error()}）。",
+                $"Centering failed (Windows error {Marshal.GetLastWin32Error()})."), null);
         TryGetSizes(hwnd, out WindowSizes sizes);
-        return new(true, "窗口已居于所在显示器的屏幕正中央。", sizes);
+        return new(true, LanguageSettings.Text(
+            "窗口已居于所在显示器的屏幕正中央。",
+            "The window is centered on its monitor."), sizes);
     }
 
     public static void Minimize(nint hwnd) => ShowWindow(hwnd, 6);
